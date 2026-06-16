@@ -1,0 +1,44 @@
+# === Données & artefacts lourds (JAMAIS commit) ===
+data/
+features_store/
+models_saved/
+*.parquet
+*.pkl
+*.joblib
+*.h5
+*.bin
+
+# === CSV : tout ignoré SAUF les soumissions ===
+*.csv
+!submissions/*.csv
+
+# === Notebooks ===
+.ipynb_checkpoints/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+build/
+dist/
+
+# === Environnements ===
+.env
+.venv/
+venv/
+env/
+.python-version
+
+# === Éditeurs / OS ===
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# === Logs & cache ===
+*.log
+.cache/
+wandb/
+mlruns/

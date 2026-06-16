@@ -1,0 +1,27 @@
+# === Manipulation de données ===
+numpy==1.26.4
+pandas==2.2.2
+pyarrow==16.1.0          # lecture/écriture parquet du feature store
+
+# === Modèles gradient boosting ===
+catboost==1.2.5          # modèle de référence (propriété A)
+lightgbm==4.3.0
+xgboost==2.0.3
+
+# === ML / métriques / calibration ===
+scikit-learn==1.5.0      # CV, average_precision_score, calibration isotonic/Platt
+
+# === Graphe (piste D) ===
+networkx==3.3            # PageRank, degrés, centralité, Louvain
+python-louvain==0.16     # détection de communautés (import: community)
+
+# === Visualisation (EDA / analyse d'erreurs) ===
+matplotlib==3.9.0
+seaborn==0.13.2
+
+# === Notebooks & hygiène Git ===
+jupyterlab==4.2.1
+nbstripout==0.7.1        # nettoie les sorties des .ipynb avant commit
+
+# === Confort ===
+tqdm==4.66.4
