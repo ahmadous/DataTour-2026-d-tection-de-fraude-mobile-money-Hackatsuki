@@ -4,6 +4,10 @@ Compétition data science · détection de fraude sur transactions mobile money.
 **Métrique : Average Precision (AP).** Objectif : probabilités **bien calibrées**, sans
 surapprentissage sur les identifiants de comptes.
 
+> 📌 **Lire [FINDINGS.md](FINDINGS.md) AVANT de coder.** L'EDA a révélé que 100 % de la
+> fraude est dans `op_03`, que le graphe est biparti (PageRank/Louvain inutiles), que la
+> validation doit être temporelle et que l'ID de compte est un piège. Ces faits priment.
+
 ---
 
 ## ⚡ Démarrage rapide (à faire par chaque membre, jour 1)
@@ -27,12 +31,14 @@ Placez ensuite `train.csv` / `test.csv` dans `data/` (dossier **gitignored**, ja
 
 | Rôle | Membre | Responsabilité | Fichiers propriétaires |
 |------|--------|----------------|------------------------|
-| **A — Lead / Validation** | _à remplir_ | Stratégie de CV, calibration, blending, soumissions, leaderboard interne | `src/validation.py`, `src/calibration.py`, `src/blending.py` |
-| **B1 — FE comportemental** | _à remplir_ | Agrégations par compte émetteur/destinataire, fréquences, stats montants. Modèle **LightGBM**. | `src/features/behavioral.py`, `src/models/lightgbm.py` |
-| **B2 — FE structurel/temporel** | _à remplir_ | Ratios, deltas de balance, features `period`, interactions. Modèle **CatBoost** (référence). | `src/features/temporal.py`, `src/models/catboost_ref.py` |
-| **C — R&D graphe + analyse d'erreurs** | _à remplir_ | S1-2 : features graphe (PageRank, degrés, Louvain). S2-3 : analyse FP/FN, stacking. | `src/features/graph.py`, `src/models/xgboost.py` |
+| **A — Lead / Validation** | _à remplir_ | CV temporelle (`time_folds`), encodages anti-fuite, calibration, blending, soumissions, leaderboard interne | `src/validation.py`, `src/encoding.py`, `src/calibration.py`, `src/blending.py` |
+| **B1 — FE comportemental** | _à remplir_ | Comportement par couple émetteur-destinataire, fréquences, stats montants (fold-safe). Modèle **LightGBM**. | `src/features/behavioral.py`, `src/models/lightgbm.py` |
+| **B2 — FE temporel / dynamique** | _à remplir_ | Régularité temporelle, dynamique récente, montant vs habitude du compte. Modèle **CatBoost** (référence). | `src/features/temporal.py`, `src/models/catboost_ref.py` |
+| **C — Degrés bipartites + analyse d'erreurs** | _à remplir_ | Features de degré bipartite (collecteur / fan-out) **time-boxées**, puis analyse FP/FN + stacking. Modèle **XGBoost**. | `src/features/graph.py`, `src/models/xgboost.py` |
 
-> ⏱️ **Go/No-Go graphe** : si gain < 0.005 AP à la mi-semaine 2, C bascule 100 % sur l'analyse d'erreurs.
+> ⚠️ **La piste graphe lourde est ABANDONNÉE** (graphe biparti, sans cycles — cf. FINDINGS.md).
+> Rôle C : tester vite les degrés bipartites, puis basculer dès la S2 sur l'**analyse d'erreurs**,
+> qui est le vrai levier ici. Go/No-Go degrés : si gain < 0.005 AP, on coupe immédiatement.
 
 ---
 

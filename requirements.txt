@@ -11,9 +11,10 @@ xgboost==2.0.3
 # === ML / métriques / calibration ===
 scikit-learn==1.5.0      # CV, average_precision_score, calibration isotonic/Platt
 
-# === Graphe (piste D) ===
-networkx==3.3            # PageRank, degrés, centralité, Louvain
-python-louvain==0.16     # détection de communautés (import: community)
+# === Graphe : features de degré bipartite via simple groupby (pandas suffit) ===
+# EDA: graphe biparti sans cycles -> PageRank/Louvain/GNN NON justifiés.
+# networkx gardé optionnel au cas où, mais non requis pour src/features/graph.py.
+# networkx==3.3
 
 # === Visualisation (EDA / analyse d'erreurs) ===
 matplotlib==3.9.0

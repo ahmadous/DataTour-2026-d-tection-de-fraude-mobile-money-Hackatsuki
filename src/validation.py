@@ -3,12 +3,18 @@
 C'est la source de vérité UNIQUE de l'équipe pour la cross-validation.
 Personne ne réimplémente sa propre CV : tout le monde importe `get_folds`.
 
-La brief prévient deux fois :
-  - éviter le surapprentissage sur les identifiants de comptes ;
-  - produire de véritables probabilités bien calibrées.
+DÉCISION (figée par l'EDA, voir FINDINGS.md) :
+  -> `time_folds` est le schéma de RÉFÉRENCE. Le test est strictement dans le
+     futur (périodes 106-143 vs train 0-105) et le taux de fraude varie de 4% à
+     18% selon la période. Une CV aléatoire mélange passé/futur et MENT.
+  -> `stratified_folds` et `group_folds` sont gardés pour comparaison/diagnostic
+     uniquement, pas pour décider.
 
-=> On compare trois schémas et on garde celui dont la corrélation
-   CV <-> LB public est la meilleure. Si CV et LB divergent, on croit la CV.
+Rappels critiques de l'EDA :
+  - On valide la CV sur les op_03 uniquement (toute la fraude y est).
+  - Tout encodage fréquence/target se calcule fold-by-fold sur le PASSÉ
+    (cf. src/encoding.py), jamais sur l'ensemble, sous peine de fuite du futur.
+  - Si CV et LB public divergent, on croit la CV.
 """
 from __future__ import annotations
 
@@ -46,15 +52,20 @@ def group_folds(
 def time_folds(
     period: pd.Series, n_splits: int = N_SPLITS
 ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-    """Split temporel sur `period` : on valide toujours sur le futur.
+    """Split temporel à fenêtre expansive, sur les frontières de `period`.
 
-    Reproduit la réalité (on prédit des transactions postérieures à l'entraînement).
+    Une même période n'est JAMAIS coupée entre train et valid : on entraîne sur
+    les périodes anciennes, on valide sur un bloc de périodes plus récentes.
+    Reproduit le décalage réel train (0-105) -> test (106-143).
     """
-    order = np.argsort(period.values, kind="stable")
-    bins = np.array_split(order, n_splits + 1)
+    period = pd.Series(period).reset_index(drop=True)
+    uniq = np.sort(period.unique())
+    blocks = np.array_split(uniq, n_splits + 1)
     for i in range(1, n_splits + 1):
-        train_idx = np.concatenate(bins[:i])
-        valid_idx = bins[i]
+        train_periods = np.concatenate(blocks[:i])
+        valid_periods = blocks[i]
+        train_idx = period.index[period.isin(train_periods)].to_numpy()
+        valid_idx = period.index[period.isin(valid_periods)].to_numpy()
         yield train_idx, valid_idx
 
 
