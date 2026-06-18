@@ -32,10 +32,14 @@
   C'est exactement le surapprentissage des identifiants contre lequel la brief met en garde.
 - ✅ Encodages **fold-by-fold sur le passé** uniquement → `src/encoding.py`.
 
-### 5. Les soldes sont bruités → l'incohérence de solde est inutile
-- Arithmétique `après = avant − montant` fausse **~40 % du temps**, même pour du légitime.
+### 5. Soldes bruités globalement, MAIS l'incohérence est le top signal DANS op_03
 - Soldes négatifs (~2,5 %) = artefact d'anonymisation, pas un bug.
-- L'incohérence de solde corrèle **+0,04** (Spearman) avec la fraude → **quasi inutile**. Piège.
+- ⚠️ **Correction (notebook 00, vérifié sur les données)** : sur *tout* le dataset, l'arithmétique
+  est fausse ~40 % du temps et corrèle +0,04 (dilué par les opérations sans fraude). **Mais dans
+  op_03**, seules ~4 % des tx sont incohérentes et elles sont **frauduleuses à ~56 %** (vs ~30 %
+  en moyenne) → Spearman ≈ **0,11**, le **signal univarié le plus fort**.
+- ✅ On garde `balance_features` (résidu signé + flag, émetteur ET destinataire). Voir
+  `src/features/temporal.py`. Leçon : toujours mesurer dans le bon périmètre (op_03), pas en global.
 
 ---
 
