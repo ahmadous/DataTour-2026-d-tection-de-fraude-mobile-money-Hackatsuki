@@ -10,6 +10,7 @@ xgboost==2.0.3
 
 # === ML / métriques / calibration ===
 scikit-learn==1.5.0      # CV, average_precision_score, calibration isotonic/Platt
+scipy==1.13.1            # spearmanr (EDA), optimisation des poids de blend
 
 # === Graphe : features de degré bipartite via simple groupby (pandas suffit) ===
 # EDA: graphe biparti sans cycles -> PageRank/Louvain/GNN NON justifiés.
