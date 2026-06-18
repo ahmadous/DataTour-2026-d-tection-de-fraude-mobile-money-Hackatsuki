@@ -85,3 +85,27 @@ def cv_score(
     """
     scores = [evaluate_ap(y[v], oof_proba[v]) for _, v in folds]
     return float(np.mean(scores)), float(np.std(scores))
+
+
+def summarize_cv(
+    y: np.ndarray,
+    oof_proba: np.ndarray,
+    folds: list[tuple[np.ndarray, np.ndarray]],
+    recent_k: int = 2,
+) -> dict:
+    """Synthèse CV temporelle en privilégiant les folds RÉCENTS.
+
+    Le test est juste après le dernier fold : les folds récents sont le meilleur
+    proxy du LB. On ne juge donc PAS sur la moyenne globale (diluée par les vieux
+    folds, régime différent), mais sur `recent_mean` / `last`.
+
+    Renvoie {per_fold, global, recent_mean, last}.
+    `folds` doit être une LISTE (réutilisée), pas un générateur.
+    """
+    per_fold = [evaluate_ap(y[v], oof_proba[v]) for _, v in folds]
+    return {
+        "per_fold": per_fold,
+        "global": evaluate_ap(y, oof_proba),
+        "recent_mean": float(np.mean(per_fold[-recent_k:])),
+        "last": per_fold[-1],
+    }

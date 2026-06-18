@@ -5,6 +5,8 @@ catégorie d'opération × montant, anomalies vs moyenne du compte. Préfixe : `
 """
 from __future__ import annotations
 
+import bisect
+
 import numpy as np
 import pandas as pd
 
@@ -12,8 +14,10 @@ from ..config import (
     AMOUNT,
     DEST_BAL_AFTER,
     DEST_BAL_BEFORE,
+    ORIGIN_ACCT,
     ORIGIN_BAL_AFTER,
     ORIGIN_BAL_BEFORE,
+    PERIOD,
 )
 
 # Tolérance d'égalité de solde. Soldes en millions -> 1.0 = quasi-égalité exacte.
@@ -63,6 +67,53 @@ def balance_features(df: pd.DataFrame) -> pd.DataFrame:
     # 4) Ratio montant / solde émetteur avant (continu, ≈1 quand émetteur vidé).
     f["b2_amount_over_origin_before"] = df[AMOUNT] / (df[ORIGIN_BAL_BEFORE].abs() + 1.0)
 
+    return f
+
+
+def recency_features(
+    df: pd.DataFrame, ref_df: pd.DataFrame, windows: tuple[int, ...] = (5, 10)
+) -> pd.DataFrame:
+    """Dynamique récente par émetteur — apprise sur le PASSÉ STRICT (anti-fuite).
+
+    Pour chaque transaction au temps p, on ne regarde que les tx du même émetteur
+    de `ref_df` dont la période est STRICTEMENT < p. Le `< p` garantit l'absence de
+    fuite même quand df == ref_df (un fold d'entraînement ne se voit pas lui-même).
+
+    - b2_periods_since_last_origin_tx : écart à la dernière tx de l'émetteur (-1 si aucune)
+    - b2_origin_tx_before             : nb total de tx passées de l'émetteur
+    - b2_origin_recent_count_{w}      : nb de tx de l'émetteur dans [p-w, p)
+    """
+    # émetteur -> périodes triées (depuis le passé de référence)
+    ref_dict = {
+        acc: np.sort(s.values)
+        for acc, s in ref_df.groupby(ORIGIN_ACCT)[PERIOD]
+    }
+    periods = df[PERIOD].to_numpy()
+    origins = df[ORIGIN_ACCT].to_numpy()
+    n = len(df)
+
+    since_last = np.full(n, -1.0)
+    total_before = np.zeros(n)
+    recent = {w: np.zeros(n) for w in windows}
+
+    for i in range(n):
+        arr = ref_dict.get(origins[i])
+        if arr is None:
+            continue
+        p = periods[i]
+        j = bisect.bisect_left(arr, p)  # nb d'éléments strictement < p
+        total_before[i] = j
+        if j > 0:
+            since_last[i] = p - arr[j - 1]
+            for w in windows:
+                lo = bisect.bisect_left(arr, p - w)
+                recent[w][i] = j - lo
+
+    f = pd.DataFrame(index=df.index)
+    f["b2_periods_since_last_origin_tx"] = since_last
+    f["b2_origin_tx_before"] = total_before
+    for w in windows:
+        f[f"b2_origin_recent_count_{w}"] = recent[w]
     return f
 
 
