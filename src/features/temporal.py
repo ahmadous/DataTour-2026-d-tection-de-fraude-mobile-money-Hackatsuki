@@ -117,6 +117,48 @@ def recency_features(
     return f
 
 
+def rhythm_features(df: pd.DataFrame, ref_df: pd.DataFrame) -> pd.DataFrame:
+    """Rythme temporel de l'émetteur (hypothèse loi géométrique/Poisson).
+
+    Pour chaque tx au temps p, à partir des tx du même émetteur dans `ref_df` de
+    période STRICTEMENT < p (anti-fuite) :
+      - b2_origin_age        : p - première période vue de l'émetteur (ancienneté)
+      - b2_origin_mean_itv   : intervalle moyen entre ses tx passées
+      - b2_interval_vs_mean  : (intervalle depuis la dernière tx) / intervalle moyen
+                               -> déviation au rythme habituel (>1 = ralenti, <1 = rafale)
+    Valeurs par défaut -1 quand pas d'historique exploitable.
+    """
+    ref_dict = {acc: np.sort(s.values) for acc, s in ref_df.groupby(ORIGIN_ACCT)[PERIOD]}
+    periods = df[PERIOD].to_numpy()
+    origins = df[ORIGIN_ACCT].to_numpy()
+    n = len(df)
+    age = np.full(n, -1.0)
+    mean_itv = np.full(n, -1.0)
+    itv_vs_mean = np.full(n, -1.0)
+
+    for i in range(n):
+        arr = ref_dict.get(origins[i])
+        if arr is None:
+            continue
+        p = periods[i]
+        j = bisect.bisect_left(arr, p)  # nb de tx strictement avant p
+        if j == 0:
+            continue
+        first, last = arr[0], arr[j - 1]
+        age[i] = p - first
+        if j >= 2:
+            mi = (last - first) / (j - 1)
+            mean_itv[i] = mi
+            if mi > 0:
+                itv_vs_mean[i] = (p - last) / mi
+
+    f = pd.DataFrame(index=df.index)
+    f["b2_origin_age"] = age
+    f["b2_origin_mean_itv"] = mean_itv
+    f["b2_interval_vs_mean"] = itv_vs_mean
+    return f
+
+
 def build(df: pd.DataFrame) -> pd.DataFrame:
     """Construit les features structurelles/temporelles, indexées comme `df`.
 
