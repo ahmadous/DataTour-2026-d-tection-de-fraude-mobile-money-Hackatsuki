@@ -79,9 +79,28 @@ voir `CORRECTION_CISSOKHO.md` + `notebooks/13`). À blender avec le CatBoost via
 
 ---
 
-## 6. Soumission finale recommandée
+## 6. La remontée finale : pseudo-labeling + rank-blend (2e place)
 
-**`submissions/08_te_smooth30.csv`** (CatBoost, te_origin, non calibré) — meilleur sur le public
-ET sur recent2 (proxy privé). À **sélectionner comme soumission finale** pour le scoring privé.
+Après le plateau de 08 (0.3569), **le pseudo-labeling a débloqué la situation** — la seule idée
+qui ait dépassé 08. Progression :
 
-> Reproductible via `notebooks/08_te_smoothing.ipynb`. Tout le code réutilisable est dans `src/`.
+| Étape | LB public |
+|---|---|
+| 08 (CatBoost te_origin) | 0.35686 |
+| + pseudo-labeling 1-cycle (seuils 0.98/0.02) | 0.35727 |
+| + blend champion×pseudo (raw 50/50) | 0.35740 |
+| + **rank-average** au lieu de raw | 0.35780 |
+| + **poids optimal ~50% pseudo** | **0.357915** (2e place) |
+
+**Pourquoi le pseudo-labeling marche** : le test (périodes 106-143) contient ~9.7% de comptes
+destinataires nouveaux. Les pseudo-labels (prédictions très confiantes du champion sur le test,
+seuils 0.98/0.02) donnent au modèle un signal sur ces comptes futurs.
+
+**Ce qui a marché** : 1 cycle (pas 2), **rank-average** (>> raw, +0.00012), poids ~50-55% pseudo.
+**Ce qui a échoué** : 2 cycles (overfit), bagging (graine 42 déjà bonne), seuils agressifs.
+
+### Soumission finale
+**`submissions/28_rank_w50.csv`** = rank-blend(champion, pseudo-1cycle) à 50% — **LB 0.357915, 2e place**.
+Champion de secours robuste : `08_te_smooth30.csv` (0.3569).
+
+> Pipeline reproductible : `notebooks/23_pseudo_labeling.ipynb` + scripts de blend. Code dans `src/`.
