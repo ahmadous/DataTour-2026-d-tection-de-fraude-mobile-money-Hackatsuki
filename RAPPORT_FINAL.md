@@ -36,7 +36,7 @@ Conséquence : on a pu **itérer en local et ne soumettre que du gagnant**. Règ
 
 ---
 
-## 3. Journal des 17 expériences
+## 3. Journal des 21 expériences
 
 **Ce qui a marché :** `te_origin` fold-safe (+0.0067), suppression calibration (+0.013).
 
@@ -54,6 +54,10 @@ Conséquence : on a pu **itérer en local et ne soumettre que du gagnant**. Règ
 | LightGBM, XGBoost, ensemble décorrélé | corrélés (~0.93), n'aident pas |
 | MLP + blend (cat+NN) | CV +0.001 (bruit) ; LB **pire** (0.3551) |
 | Modèle graphe-XGBoost (degrés + voisinage) | corr 0.929, blend = cat |
+| Signal de voisinage via destination partagée (guilt-by-association) | corr **0.007-0.009** avec target, dégrade le modèle complet (-0.0015 et -0.0021 sur 2 folds indép.) |
+| Pseudo-labeling "inversé" (générateur sans `te_origin`, distillation croisée) | gain vs pseudo-labeling standard : **+0.0010, +0.0037, -0.0034** sur 3 folds indép. (moyenne +0.0004, écart-type 0.0029) → bruit |
+| Smoothing fin de `te_origin` (20/25/35/40 autour de 30) | classement instable sur 3 folds (20 gagne sur 2, perd sur le 3e ; 25 gagne puis perd) → 30 reste un choix aussi défendable que tout autre, pas de point fin qui domine |
+| Feature `amount_zscore_origin` (montant standardisé par compte émetteur) | **-0.0022, -0.0050, +0.0017** sur 3 folds indép. → négatif en moyenne (-0.0018), pas retenue |
 
 ---
 
@@ -70,12 +74,41 @@ dans op_03, fraude et légitime se ressemblent (toutes corrélations |ρ| < 0.11
 
 ---
 
-## 5. Le seul levier restant pour le 1er
+## 5. Node2Vec/GraphSAGE — piste fermée (diagnostic structurel + test direct)
 
-Une **vraie diversité de modèle** d'un coéquipier — typiquement les **embeddings de graphe**
-(Node2Vec/GraphSAGE) de Cissokho, en version **corrigée** (sans fuite, temporelle, AP, op_03 :
-voir `CORRECTION_CISSOKHO.md` + `notebooks/13`). À blender avec le CatBoost via leurs OOF.
-⚠️ Bridé par le graphe **biparti sans cycle** : faible probabilité, mais seule piste non épuisée.
+Avant d'investir dans un embedding appris, diagnostic structurel du graphe origine→destination
+(train+test op_03, 21 412 comptes, 569 328 lignes) :
+- origines et destinations sont des **espaces de comptes disjoints** (0% de recouvrement) → graphe
+  **biparti strict**, aucun triangle possible ;
+- mais **pas un forêt épars** : 99,1% des comptes dans **une seule composante connexe géante** ;
+  58,6% des destinations sont partagées par ≥2 origines distinctes (58 en moyenne) → structure de
+  hubs bien réelle, donc un Node2Vec aurait *quelque chose* à apprendre structurellement.
+
+Test direct de ce que cette structure pourrait apporter : feature « guilt-by-association » =
+taux de fraude historique moyen des **autres origines partageant une destination** avec le compte
+(fold-safe, même lissage que `te_origin`). Résultat sur 2 folds indépendants :
+- corrélation avec `te_origin` : **0.004** → vraiment décorrélé (contrairement à tout le reste testé) ;
+- mais corrélation avec la **cible** : **0.007-0.009** → quasi nulle ;
+- ajoutée au modèle complet : AP **-0.0015** (fold last) et **-0.0021** (fold -2) → dégrade dans les
+  deux cas.
+
+**Verdict : piste fermée.** Le graphe a une vraie structure (hubs, composante géante), mais cette
+structure n'encode pas de signal de fraude additionnel — partager un destinataire avec d'autres
+comptes ne dit rien sur sa propre propension à la fraude. Un Node2Vec/GraphSAGE apprendrait
+essentiellement ce même type de signal de voisinage (communautés via hubs partagés) : aucune
+raison de penser qu'il ferait mieux que ce test direct. Inutile d'investir plusieurs jours dans
+cette piste.
+
+**Réserve théorique traitée — équivalence structurelle.** Node2Vec n'apprend pas que des moyennes
+de voisinage (homophilie) ; il peut aussi capturer une équivalence structurelle (deux comptes au
+rôle topologique similaire, même sans voisin commun). Mais ce signal-là, on l'a déjà sous la main :
+les degrés (`b1_dest_in_degree`, `b1_origin_count`, etc.) sont précisément les descripteurs
+d'équivalence structurelle, et `b1_dest_in_degree` est même la **2e feature en importance** du
+modèle (20.7, juste après `te_origin` à 29.5) — le modèle s'appuie déjà fortement dessus. Or
+l'ablation de l'expérience "features comportementales (paires, degrés)" donne un gain d'AP **~0**.
+Conclusion : le signal structurel est disponible, utilisé, mais n'apporte rien au rang. Un Node2Vec
+plus riche apprendrait une représentation plus fine du même rôle topologique — sans raison de
+penser qu'elle franchirait le seuil que la version brute (degré) ne franchit déjà pas.
 
 ---
 
