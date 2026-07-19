@@ -43,3 +43,4 @@ env/
 wandb/
 mlruns/
 catboost_info/
+artifacts_preds/
